@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+google-genai
+pillow
+openai
+python-multipart
+python-dotenv
+httpx
+aiofiles

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <meta name="description" content="VisionVoice — A real-time AI narrator that sees the world through your camera and describes it like a story worth living. Built for people who are blind or visually impaired." />
+  <title>VisionVoice — See the World Through Sound</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Skip to main content for screen readers -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- Ambient background -->
+  <div class="ambient" aria-hidden="true">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <main id="main-content">
+    <!-- Header -->
+    <header class="header" role="banner">
+      <div class="logo" aria-label="VisionVoice">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <circle cx="14" cy="14" r="13" stroke="url(#grad1)" stroke-width="1.5"/>
+          <circle cx="14" cy="14" r="5" fill="url(#grad1)" opacity="0.9"/>
+          <path d="M14 4 C14 4, 22 9, 22 14 C22 19, 14 24, 14 24 C14 24, 6 19, 6 14 C6 9, 14 4, 14 4Z" stroke="url(#grad1)" stroke-width="1" fill="none" opacity="0.4"/>
+          <defs>
+            <linearGradient id="grad1" x1="0" y1="0" x2="28" y2="28">
+              <stop offset="0%" stop-color="#a78bfa"/>
+              <stop offset="100%" stop-color="#38bdf8"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="logo-text">VisionVoice</span>
+      </div>
+
+      <div class="lang-picker" role="group" aria-label="Language selection">
+        <button id="lang-en" class="lang-btn active" aria-pressed="true" data-lang="english">EN</button>
+        <button id="lang-hi" class="lang-btn" aria-pressed="false" data-lang="hindi">हि</button>
+        <button id="lang-kn" class="lang-btn" aria-pressed="false" data-lang="kannada">ಕ</button>
+      </div>
+    </header>
+
+    <!-- Camera View -->
+    <section class="camera-section" aria-label="Camera viewfinder">
+      <div class="camera-frame" id="camera-frame">
+        <video id="video-feed" autoplay playsinline muted aria-label="Live camera feed"></video>
+        <canvas id="capture-canvas" aria-hidden="true"></canvas>
+
+        <!-- Scan ring animation -->
+        <div class="scan-ring" id="scan-ring" aria-hidden="true"></div>
+
+        <!-- Processing overlay -->
+        <div class="processing-overlay" id="processing-overlay" aria-hidden="true" hidden>
+          <div class="processing-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <p class="processing-label">Reading the scene…</p>
+        </div>
+
+        <!-- Camera off state -->
+        <div class="camera-off" id="camera-off" aria-live="polite">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <path d="M6 10L42 38" stroke="#6b7280" stroke-width="2" stroke-linecap="round"/>
+            <rect x="2" y="8" width="32" height="24" rx="4" stroke="#6b7280" stroke-width="2"/>
+            <path d="M34 18l10-6v16l-10-6v-4z" stroke="#6b7280" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+          <p>Camera is off</p>
+          <button id="enable-camera-btn" class="btn-secondary" aria-label="Turn on camera">Turn on camera</button>
+        </div>
+
+        <!-- Camera toggle -->
+        <button id="camera-toggle" class="camera-toggle-btn" aria-label="Toggle camera" aria-pressed="false">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M1 4a2 2 0 012-2h10a2 2 0 012 2v2.586l3.707-3.707A1 1 0 0120 3.586v12.828a1 1 0 01-1.707.707L15 13.414V16a2 2 0 01-2 2H3a2 2 0 01-2-2V4z" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- Narration Output -->
+    <section class="narration-section" aria-label="Scene narration" aria-live="polite" aria-atomic="true">
+      <div class="narration-card" id="narration-card">
+        <div class="narration-idle" id="narration-idle">
+          <p class="narration-hint">Hold the mic button and ask what's around you.</p>
+          <p class="narration-example">"Where am I?" &nbsp;·&nbsp; "What does this place feel like?" &nbsp;·&nbsp; "Is there anything I need to watch out for?"</p>
+        </div>
+        <div class="narration-content" id="narration-content" hidden>
+          <p class="narration-question" id="narration-question"></p>
+          <p class="narration-text" id="narration-text"></p>
+          <div class="narration-actions">
+            <button id="replay-btn" class="btn-ghost" aria-label="Replay narration audio">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M2 8a6 6 0 1112 0A6 6 0 012 8z" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M6 6l4 2-4 2V6z" fill="currentColor"/>
+              </svg>
+              Replay
+            </button>
+            <button id="copy-btn" class="btn-ghost" aria-label="Copy narration text">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+              Copy
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audio player (hidden, used programmatically) -->
+      <audio id="narration-audio" aria-label="Narration audio"></audio>
+    </section>
+
+    <!-- Mic Button -->
+    <section class="mic-section" aria-label="Voice input controls">
+      <div class="mic-outer-ring" id="mic-outer-ring" aria-hidden="true"></div>
+      <button
+        id="mic-btn"
+        class="mic-btn"
+        aria-label="Hold to speak — ask about your surroundings"
+        aria-pressed="false"
+        role="button"
+      >
+        <svg class="mic-icon" id="mic-icon-default" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <rect x="11" y="3" width="10" height="17" rx="5" fill="currentColor"/>
+          <path d="M6 16a10 10 0 0020 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+          <line x1="16" y1="26" x2="16" y2="30" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <line x1="10" y1="30" x2="22" y2="30" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <svg class="mic-icon" id="mic-icon-recording" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true" style="display:none">
+          <rect x="9" y="9" width="14" height="14" rx="3" fill="currentColor"/>
+        </svg>
+      </button>
+      <p class="mic-label" id="mic-label" aria-live="polite">Hold to speak</p>
+    </section>
+
+    <!-- Status bar -->
+    <div class="status-bar" id="status-bar" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Settings drawer -->
+    <button class="settings-fab" id="settings-fab" aria-label="Open settings" aria-expanded="false" aria-controls="settings-drawer">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <aside class="settings-drawer" id="settings-drawer" aria-label="Settings" hidden>
+      <div class="settings-header">
+        <h2>Settings</h2>
+        <button id="close-settings" aria-label="Close settings">✕</button>
+      </div>
+      <div class="settings-body">
+        <label class="settings-row" for="api-url">Backend URL</label>
+        <input id="api-url" class="settings-input" type="url" placeholder="http://localhost:8000" aria-describedby="api-url-hint"/>
+        <p id="api-url-hint" class="settings-hint">Where your VisionVoice backend is running.</p>
+
+        <label class="settings-row" for="voice-toggle">Text-to-speech</label>
+        <div class="toggle-row">
+          <input id="voice-toggle" type="checkbox" role="switch" aria-checked="true" checked />
+          <span id="voice-toggle-label">Voice on</span>
+        </div>
+
+        <label class="settings-row" for="hazard-toggle">Hazard alerts first</label>
+        <div class="toggle-row">
+          <input id="hazard-toggle" type="checkbox" role="switch" aria-checked="true" checked />
+          <span>Always mention hazards before description</span>
+        </div>
+
+        <button id="clear-memory-btn" class="btn-danger" aria-label="Clear conversation memory">Clear conversation memory</button>
+      </div>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
