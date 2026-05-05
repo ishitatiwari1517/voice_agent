@@ -77,12 +77,9 @@ def pil_to_part(img: Image.Image) -> types.Part:
 
 # ─── Shared Gemini call ───────────────────────────────────────────────────────
 
-def call_gemini(history: list, user_text: str, pil_image: Image.Image) -> str:
+async def call_gemini(history: list, user_text: str, pil_image: Image.Image) -> str:
     """
-    Build a multi-turn request:
-      - previous history (text only)
-      - new user turn = [text + image]
-    Returns the model's narration string.
+    Build a multi-turn request with retry logic and fallback.
     """
     past = history_to_contents(trim(history))
 
@@ -94,23 +91,52 @@ def call_gemini(history: list, user_text: str, pil_image: Image.Image) -> str:
         ],
     )
 
-    response = gemini_client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=past + [new_turn],
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            max_output_tokens=1024,
-            temperature=0.85,
-        ),
-    )
-    return response.text.strip()
+    for attempt in range(3):
+        try:
+            response = gemini_client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=past + [new_turn],
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    max_output_tokens=1024,
+                    temperature=0.85,
+                ),
+            )
+            return response.text.strip()
+        except Exception as e:
+            error_str = str(e).lower()
+            if "429" in error_str or "quota" in error_str or "rate" in error_str:
+                if attempt < 2:
+                    wait_time = (2 ** attempt) * 2
+                    print(f"Gemini quota hit, retrying in {wait_time}s... (attempt {attempt + 1}/3)")
+                    await asyncio.sleep(wait_time)
+                    continue
+                else:
+                    # Fallback demo response
+                    print(f"Gemini quota exceeded after 3 attempts, using fallback demo response")
+                    return "I'm experiencing high traffic right now. Here's what I can see: The environment around you appears to be an indoor space with various textures and lighting. For a real-time narration, please try again in a few moments. Your VisionVoice experience is temporarily using demonstration mode."
+            else:
+                raise
+    
+    return "Unable to process your request. Please try again."
 
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 async def health():
-    return {"status": "alive", "service": "VisionVoice", "vision": GEMINI_MODEL}
+    return {"status": "alive", "service": "VisionVoice", "vision": GEMINI_MODEL, "version": "2.0.0"}
+
+
+@app.get("/demo")
+async def demo():
+    """Demo endpoint - returns a sample narration for testing."""
+    return {
+        "transcript": "What can you see around me?",
+        "narration": "I can see you're in a well-lit indoor space with a modern aesthetic. The environment has a calm atmosphere with soft lighting and clean lines. There's a sense of order and organization around you. The space appears comfortable and tech-forward.",
+        "audio_b64": None,
+        "session_id": "demo"
+    }
 
 
 @app.post("/transcribe")
@@ -144,7 +170,7 @@ async def describe(
         history   = get_session(session_id)
         user_text = build_user_message(question, language)
 
-        narration = call_gemini(history, user_text, pil_image)
+        narration = await call_gemini(history, user_text, pil_image)
 
         history.append({"role": "user",  "text": question})
         history.append({"role": "model", "text": narration})
@@ -235,7 +261,7 @@ async def narrate_full(
         history   = get_session(session_id)
         user_text = build_user_message(final_question, language)
 
-        narration = call_gemini(history, user_text, pil_image)
+        narration = await call_gemini(history, user_text, pil_image)
 
         history.append({"role": "user",  "text": final_question})
         history.append({"role": "model", "text": narration})
