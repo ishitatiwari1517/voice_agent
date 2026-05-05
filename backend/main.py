@@ -16,7 +16,7 @@ from google import genai
 from google.genai import types
 from PIL import Image
 
-from prompts import SYSTEM_PROMPT, build_user_message
+from .prompts import SYSTEM_PROMPT, build_user_message
 
 load_dotenv()
 
