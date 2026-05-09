@@ -33,7 +33,7 @@ app.add_middleware(
 # ─── Clients ──────────────────────────────────────────────────────────────────
 
 gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-GEMINI_MODEL  = "gemini-1.5-flash-latest"   # Using latest 1.5 flash to avoid 404 and quota 0 issues
+GEMINI_MODEL  = "gemini-flash-latest"   # Modern alias mapping to free-tier model
 
 openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
