@@ -138,7 +138,24 @@ async def call_gemini(history: list, user_text: str, pil_image: Image.Image) -> 
 
 @app.get("/health")
 async def health():
-    return {"status": "alive", "service": "VisionVoice", "vision": GEMINI_MODEL, "version": "2.0.0"}
+    return {"status": "alive", "service": "VisionVoice", "vision": GEMINI_MODEL, "version": "2.0.0",
+            "gemini_key_set": bool(os.getenv("GEMINI_API_KEY"))}
+
+
+@app.get("/test-gemini")
+async def test_gemini():
+    """Diagnostic: tests Gemini API with a simple text call. Open in browser to debug."""
+    key = os.getenv("GEMINI_API_KEY")
+    if not key:
+        return {"success": False, "error": "GEMINI_API_KEY is not set in environment variables"}
+    try:
+        response = gemini_client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents="Say exactly: I am working correctly"
+        )
+        return {"success": True, "response": response.text.strip(), "model": GEMINI_MODEL}
+    except Exception as e:
+        return {"success": False, "error": str(e), "error_type": type(e).__name__, "model": GEMINI_MODEL}
 
 
 @app.get("/demo")
