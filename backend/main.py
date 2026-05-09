@@ -33,7 +33,7 @@ app.add_middleware(
 # ─── Clients ──────────────────────────────────────────────────────────────────
 
 gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-GEMINI_MODEL  = "gemini-2.0-flash"   # Fully supported by new GenAI SDK
+GEMINI_MODEL  = "gemini-1.5-flash-latest"   # Using latest 1.5 flash to avoid 404 and quota 0 issues
 
 openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -156,6 +156,17 @@ async def test_gemini():
         return {"success": True, "response": response.text.strip(), "model": GEMINI_MODEL}
     except Exception as e:
         return {"success": False, "error": str(e), "error_type": type(e).__name__, "model": GEMINI_MODEL}
+
+@app.get("/test-models")
+async def test_models():
+    """Diagnostic: lists all available models for this API key."""
+    try:
+        models = []
+        for m in gemini_client.models.list():
+            models.append(m.name)
+        return {"success": True, "models": models}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 @app.get("/demo")
