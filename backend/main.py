@@ -242,14 +242,18 @@ async def narrate_full(
     Returns { transcript, narration, audio_b64, session_id }
     """
     try:
-        # 1 ── Transcribe
+        # 1 ── Transcribe (fail-safe: if Whisper/OpenAI fails, fall back gracefully)
         if audio and audio.filename:
-            buf = BytesIO(await audio.read())
-            buf.name = audio.filename or "recording.webm"
-            tx = await openai_client.audio.transcriptions.create(
-                model="whisper-1", file=buf, response_format="text"
-            )
-            final_question = tx.strip()
+            try:
+                buf = BytesIO(await audio.read())
+                buf.name = audio.filename or "recording.webm"
+                tx = await openai_client.audio.transcriptions.create(
+                    model="whisper-1", file=buf, response_format="text"
+                )
+                final_question = tx.strip() or question or "What's around me?"
+            except Exception as whisper_err:
+                print(f"Whisper transcription failed (using fallback): {whisper_err}")
+                final_question = question or "Where am I? What's around me? What does this place feel like?"
         else:
             final_question = question or "Where am I? What's around me? What does this place feel like?"
 
@@ -267,15 +271,14 @@ async def narrate_full(
         history.append({"role": "model", "text": narration})
         sessions[session_id] = trim(history)
 
-        # 3 ── Browser Speech Synthesis (skip ElevenLabs entirely)
-        # We'll use browser's Web Speech API instead - free and unlimited
-        audio_b64 = None
-
+        # 3 ── Audio: use browser Web Speech API (free, unlimited)
+        # audio_b64 is null — frontend uses Web Speech API to speak narration
         return JSONResponse({
-            "transcript": final_question,
-            "narration":  narration,
-            "audio_b64":  audio_b64,
-            "session_id": session_id,
+            "transcript":  final_question,
+            "narration":   narration,
+            "audio_b64":   None,
+            "speak_text":  narration,   # frontend uses this to trigger speech
+            "session_id":  session_id,
         })
 
     except Exception as e:

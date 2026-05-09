@@ -263,8 +263,9 @@ async function processRecording() {
 
     displayNarration(data.transcript, data.narration);
 
-    if (state.voiceEnabled && data.audio_b64) {
-      playAudio(data.audio_b64);
+    // Always speak the narration using Web Speech API (audio_b64 is always null)
+    if (state.voiceEnabled) {
+      speakNarration(data.speak_text || data.narration);
     }
 
     clearStatus();
@@ -318,26 +319,44 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-// ── Audio playback – Browser Native Speech Synthesis (Web Speech API) ──
+// ── Speech Synthesis (Web Speech API — free, unlimited) ──────────────
+const LANG_BCP47 = { english: 'en-US', hindi: 'hi-IN', kannada: 'kn-IN' };
+
+function speakNarration(text, lang) {
+  if (!text || !window.speechSynthesis) return;
+
+  const bcp47 = LANG_BCP47[lang || state.language] || 'en-US';
+
+  // Cancel any ongoing speech first
+  window.speechSynthesis.cancel();
+
+  // Small delay — some browsers need this after cancel()
+  setTimeout(() => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang   = bcp47;
+    utterance.rate   = 0.95;  // slightly slower for clarity
+    utterance.pitch  = 1.0;
+    utterance.volume = 1.0;
+
+    // Prefer a voice matching the target language
+    const voices    = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v => v.lang === bcp47)
+                   || voices.find(v => v.lang.startsWith(bcp47.split('-')[0]))
+                   || null;
+    if (preferred) utterance.voice = preferred;
+
+    utterance.onerror = (e) => console.warn('Speech error:', e.error);
+    window.speechSynthesis.speak(utterance);
+  }, 100);
+}
+
+// Legacy alias so nothing else breaks
 function playAudio(b64) {
-  // Ignore ElevenLabs b64, use Web Speech API instead (free, unlimited)
-  if (!state.lastNarration) return;
-  
-  // Cancel any ongoing speech
-  if (window.speechSynthesis.speaking) {
-    window.speechSynthesis.cancel();
-  }
-  
-  const utterance = new SpeechSynthesisUtterance(state.lastNarration.narration);
-  utterance.rate = 1.0;
-  utterance.pitch = 1.0;
-  utterance.volume = 1.0;
-  
-  window.speechSynthesis.speak(utterance);
+  speakNarration(state.lastNarration?.narration);
 }
 
 replayBtn.addEventListener('click', () => {
-  playAudio();
+  if (state.lastNarration) speakNarration(state.lastNarration.narration);
 });
 
 copyBtn.addEventListener('click', async () => {
