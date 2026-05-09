@@ -60,7 +60,7 @@ def history_to_contents(history: list) -> list[types.Content]:
     contents = []
     for msg in history:
         role  = msg["role"]                       # "user" | "model"
-        parts = [types.Part.from_text(msg["text"])]
+        parts = [types.Part(text=msg["text"])]
         contents.append(types.Content(role=role, parts=parts))
     return contents
 
@@ -72,7 +72,9 @@ def bytes_to_pil(image_bytes: bytes) -> Image.Image:
 def pil_to_part(img: Image.Image) -> types.Part:
     buf = BytesIO()
     img.save(buf, format="JPEG", quality=85)
-    return types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg")
+    return types.Part(
+        inline_data=types.Blob(data=buf.getvalue(), mime_type="image/jpeg")
+    )
 
 
 # ─── Shared Gemini call ───────────────────────────────────────────────────────
@@ -86,7 +88,7 @@ async def call_gemini(history: list, user_text: str, pil_image: Image.Image) -> 
     new_turn = types.Content(
         role="user",
         parts=[
-            types.Part.from_text(user_text),
+            types.Part(text=user_text),
             pil_to_part(pil_image),
         ],
     )
