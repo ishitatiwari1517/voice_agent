@@ -33,7 +33,7 @@ app.add_middleware(
 # ─── Clients ──────────────────────────────────────────────────────────────────
 
 gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-GEMINI_MODEL  = "gemini-1.5-flash"   # free tier, vision-capable
+GEMINI_MODEL  = "gemini-2.0-flash"   # better free tier limits + faster
 
 openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -114,9 +114,10 @@ async def call_gemini(history: list, user_text: str, pil_image: Image.Image) -> 
                     await asyncio.sleep(wait_time)
                     continue
                 else:
-                    # Fallback demo response
-                    print(f"Gemini quota exceeded after 3 attempts, using fallback demo response")
-                    return "I'm experiencing high traffic right now. Here's what I can see: The environment around you appears to be an indoor space with various textures and lighting. For a real-time narration, please try again in a few moments. Your VisionVoice experience is temporarily using demonstration mode."
+                    raise HTTPException(
+                        429,
+                        "The AI is momentarily overwhelmed. Please wait a few seconds and try again — your world is worth the wait."
+                    )
             else:
                 raise
     
