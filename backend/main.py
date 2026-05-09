@@ -33,7 +33,7 @@ app.add_middleware(
 # ─── Clients ──────────────────────────────────────────────────────────────────
 
 gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-GEMINI_MODEL  = "gemini-1.5-flash"   # stable free-tier vision model
+GEMINI_MODEL  = "gemini-2.0-flash"   # Fully supported by new GenAI SDK
 
 openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
