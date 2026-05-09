@@ -33,7 +33,7 @@ app.add_middleware(
 # ─── Clients ──────────────────────────────────────────────────────────────────
 
 gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-GEMINI_MODEL  = "gemini-2.0-flash"   # better free tier limits + faster
+GEMINI_MODEL  = "gemini-1.5-flash"   # stable free-tier vision model
 
 openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -81,7 +81,8 @@ def pil_to_part(img: Image.Image) -> types.Part:
 
 async def call_gemini(history: list, user_text: str, pil_image: Image.Image) -> str:
     """
-    Build a multi-turn request with retry logic and fallback.
+    Build a multi-turn request with retry logic.
+    Raises HTTPException on failure — never returns fake responses.
     """
     past = history_to_contents(trim(history))
 
@@ -93,6 +94,7 @@ async def call_gemini(history: list, user_text: str, pil_image: Image.Image) -> 
         ],
     )
 
+    last_error = None
     for attempt in range(3):
         try:
             response = gemini_client.models.generate_content(
@@ -101,27 +103,35 @@ async def call_gemini(history: list, user_text: str, pil_image: Image.Image) -> 
                 config=types.GenerateContentConfig(
                     system_instruction=SYSTEM_PROMPT,
                     max_output_tokens=1024,
-                    temperature=0.85,
+                    temperature=0.7,
                 ),
             )
             return response.text.strip()
         except Exception as e:
-            error_str = str(e).lower()
-            if "429" in error_str or "quota" in error_str or "rate" in error_str:
-                if attempt < 2:
-                    wait_time = (2 ** attempt) * 2
-                    print(f"Gemini quota hit, retrying in {wait_time}s... (attempt {attempt + 1}/3)")
-                    await asyncio.sleep(wait_time)
-                    continue
-                else:
-                    raise HTTPException(
-                        429,
-                        "The AI is momentarily overwhelmed. Please wait a few seconds and try again — your world is worth the wait."
-                    )
+            last_error = e
+            error_str = str(e)
+            print(f"Gemini attempt {attempt + 1}/3 failed: {error_str}")
+
+            # Check for rate limit / quota (429)
+            is_quota = "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower()
+            # Check for auth issues (403 / bad API key)
+            is_auth  = "403" in error_str or "API_KEY" in error_str or "invalid" in error_str.lower() or "unauthorized" in error_str.lower()
+
+            if is_auth:
+                raise HTTPException(403, "Gemini API key is invalid or not enabled. Please check your GEMINI_API_KEY in Render Environment Variables.")
+
+            if is_quota and attempt < 2:
+                wait_time = (2 ** attempt) * 3   # 3s, then 6s
+                print(f"Rate limited — waiting {wait_time}s before retry...")
+                await asyncio.sleep(wait_time)
+                continue
+            elif is_quota:
+                raise HTTPException(429, "Gemini is rate-limited right now. Please wait 10 seconds and try again.")
             else:
-                raise
-    
-    return "Unable to process your request. Please try again."
+                # Unknown error — raise immediately, don't retry
+                raise HTTPException(500, f"Gemini error: {error_str[:200]}")
+
+    raise HTTPException(500, f"Gemini failed after 3 attempts: {str(last_error)[:200]}")
 
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
