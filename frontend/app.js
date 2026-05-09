@@ -271,7 +271,17 @@ async function processRecording() {
     clearStatus();
   } catch (err) {
     console.error(err);
-    showStatus(`Error: ${err.message}`, 'error', 6000);
+    const msg = err.message || 'Something went wrong';
+    // Friendly messages for known error types
+    if (msg.includes('rate') || msg.includes('429') || msg.includes('overwhelmed') || msg.includes('Rate')) {
+      showStatus('⏳ AI is busy — wait 10 seconds and try again', 'error', 10000);
+    } else if (msg.includes('API key') || msg.includes('403') || msg.includes('invalid')) {
+      showStatus('🔑 API key issue — check Render environment variables', 'error', 8000);
+    } else if (msg.includes('Camera') || msg.includes('camera')) {
+      showStatus('📷 Please turn on the camera first', 'error', 5000);
+    } else {
+      showStatus(`⚠️ ${msg}`, 'error', 6000);
+    }
   } finally {
     setProcessing(false);
   }
